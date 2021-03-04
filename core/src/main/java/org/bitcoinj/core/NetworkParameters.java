@@ -119,10 +119,9 @@ public abstract class NetworkParameters {
         Transaction t = new Transaction(n);
         try {
             // A script containing the difficulty bits and the following message:
-            //
-            //   "vircles core blockchain publish in 2020"
-            byte[] bytes = Utils.HEX.decode
-                    ("04ffff001d010427766972636c6573a0636f7265a0626c6f636b636861696ea07075626c697368a0696ea032303230");
+            // john
+            //   "anshi blockchain publish in 2020"
+            byte[] bytes = Utils.HEX.decode("04ffff001d010420616e73686920626c6f636b636861696e207075626c69736820696e2032303231");
             t.addInput(new TransactionInput(n, t, bytes));
             ByteArrayOutputStream scriptPubKeyBytes = new ByteArrayOutputStream();
             Script.writeBytes(scriptPubKeyBytes, Utils.HEX.decode
