@@ -175,9 +175,16 @@ public class TransactionInput extends ChildMessage {
         stream.write(scriptBytes);
         Utils.uint32ToByteStreamLE(sequence, stream);
     }
+    
+    // john
+    protected void bitcoinSerializeToStream1(OutputStream stream) throws IOException {
+        outpoint.bitcoinSerialize(stream);
+    }
+    protected void bitcoinSerializeToStream2(OutputStream stream) throws IOException {
+        Utils.uint32ToByteStreamLE(sequence, stream);
+    }
 
-    /**
-     * Coinbase transactions have special inputs with hashes of zero. If this is such an input, returns true.
+    /* Coinbase transactions have special inputs with hashes of zero. If this is such an input, returns true.
      */
     public boolean isCoinBase() {
         return outpoint.getHash().equals(Sha256Hash.ZERO_HASH) &&
@@ -276,6 +283,12 @@ public class TransactionInput extends ChildMessage {
     @Nullable
     public Coin getValue() {
         return value;
+    }
+
+    // john
+    @Nullable
+    public void setValue(Coin value) {
+	this.value = value;
     }
 
     /**

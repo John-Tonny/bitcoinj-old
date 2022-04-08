@@ -142,4 +142,15 @@ public abstract class Address extends PrefixedChecksummedBytes implements Compar
             return 0;
         }
     }
+
+        // john
+    public String toString() {
+      if (this instanceof SegwitAddress) {
+	SegwitAddress this1 = (SegwitAddress)this;
+	return this1.toString();
+      }
+      LegacyAddress this2 = (LegacyAddress)this;
+      return this2.toString();
+    }
+
 }

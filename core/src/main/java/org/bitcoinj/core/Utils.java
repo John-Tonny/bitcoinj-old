@@ -41,6 +41,8 @@ import com.google.common.io.BaseEncoding;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 
+
+
 /**
  * A collection of various utility methods that are helpful for working with the Bitcoin protocol.
  * To enable debug logging from the library, run with -Dbitcoinj.logging=true on your command line.
@@ -126,6 +128,11 @@ public class Utils {
         out[offset + 5] = (byte) (0xFF & (val >> 40));
         out[offset + 6] = (byte) (0xFF & (val >> 48));
         out[offset + 7] = (byte) (0xFF & (val >> 56));
+    }
+
+    /** Write 2 bytes to the output stream as unsigned 16-bit integer in little endian format. */
+    public static void uint8ToByteStream(int val, OutputStream stream) throws IOException {
+        stream.write((int) (0xFF & val));
     }
 
     /** Write 2 bytes to the output stream as unsigned 16-bit integer in little endian format. */
@@ -267,6 +274,24 @@ public class Utils {
         digest.doFinal(out, 0);
         return out;
     }
+
+    /**
+     * Attempts to parse the given string as arbitrary-length hex or base58 and then return the results, or null if
+     * neither parse was successful.
+     */
+    public static byte[] parseAsHexOrBase58(String data) {
+        try {
+            return HEX.decode(data);
+        } catch (Exception e) {
+            // Didn't decode as hex, try base58.
+            try {
+                return Base58.decodeChecked(data);
+            } catch (AddressFormatException e1) {
+                return null;
+            }
+        }
+    }
+
 
     /**
      * MPI encoded numbers are produced by the OpenSSL BN_bn2mpi function. They consist of
@@ -540,4 +565,55 @@ public class Utils {
             parts.add('[' + HEX.encode(push) + ']');
         return SPACE_JOINER.join(parts);
     }
+
+    // john
+    public static boolean isHexString(String strHex) {
+        String regex = "^[A-Fa-f0-9]+$";
+
+        if(strHex.matches(regex)){
+          return true;
+        }
+        return false;
+    }
+
+    public static void writeInput(String txid, int vout, OutputStream outputStream) throws IOException {
+        outputStream.write(Utils.reverseBytes(Utils.HEX.decode(txid)));
+        Utils.uint32ToByteStreamLE(vout, outputStream);
+    }
+
+    public static void writeHash(String hash, OutputStream outputStream) throws  IOException {
+        outputStream.write(Utils.reverseBytes(Utils.HEX.decode(hash)));
+    }
+
+    public static void writeIp(String host, int port, OutputStream outputStream) throws IOException {
+        String[] strIp = host.split("\\.");
+        byte[] btIp= new byte[4];
+        for(int i=0;i<strIp.length;i++) {
+            btIp[i] = (byte)Integer.parseInt(strIp[i]);
+        }
+        outputStream.write(Utils.HEX.decode("00000000000000000000ffff"));
+        outputStream.write(btIp);
+        Utils.uint16ToByteStreamBE(port, outputStream);
+    }
+
+    public static void writeAddress(NetworkParameters params, String address, boolean mode, OutputStream outputStream) throws IOException,  AddressFormatException {
+	try{
+          if(address == null){
+	      Utils.uint8ToByteStream(0, outputStream);
+	      return;
+          }
+          Address addr = Address.fromString(params, address);
+          if(mode){
+	      byte[] data = new byte[]{22, 0, 20};
+              outputStream.write(data);
+          }
+          outputStream.write(addr.getHash());
+        }catch(IOException e){
+          throw new IOException(e);
+        }catch(AddressFormatException e1){
+          throw new AddressFormatException(address);
+	}
+    }
+
+
 }

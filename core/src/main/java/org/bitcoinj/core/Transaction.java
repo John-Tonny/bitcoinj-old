@@ -202,6 +202,19 @@ public class Transaction extends ChildMessage {
     @Nullable
     private String memo;
 
+    // john
+    @Nullable
+    private TransactionAtomicswap atomicswap;
+
+    public void addAtomicswap(String secretHash, Boolean initiate, String contract, String secret, Boolean redeem, Boolean atomicSwap, Long lockTime) {
+        this.atomicswap = new TransactionAtomicswap(secretHash, initiate, contract, secret, redeem, atomicSwap, lockTime);
+    }
+
+    public TransactionAtomicswap getAtomicswap() {
+        return this.atomicswap;
+    }
+
+
     public Transaction(NetworkParameters params) {
         super(params);
         version = 1;
@@ -740,6 +753,17 @@ public class Transaction extends ChildMessage {
         return false;
     }
 
+    // john
+    public boolean isWitnesses() {
+        for (TransactionInput in : inputs) {
+ 	    ScriptType scriptType = in.getScriptSig().getScriptType();
+	    if(scriptType == ScriptType.P2WPKH || scriptType == ScriptType.P2WSH){
+      		return true;
+    	    }
+  	}
+  	return false;
+    }
+
     public int getOptimalEncodingMessageSize() {
         if (optimalEncodingMessageSize != 0)
             return optimalEncodingMessageSize;
@@ -1093,6 +1117,10 @@ public class Transaction extends ChildMessage {
         return addOutput(new TransactionOutput(params, this, value, script.getProgram()));
     }
 
+    // john 20220219
+    public TransactionOutput addOutput(Coin value, String outScripts) {
+        return addOutput(new TransactionOutput(params, this, value, Utils.HEX.decode(outScripts)));
+    }
 
     /**
      * Calculates a signature that is valid for being inserted into the input at the given position. This is simply
@@ -1236,7 +1264,11 @@ public class Transaction extends ChildMessage {
             // EC math so we'll do it anyway.
             for (int i = 0; i < tx.inputs.size(); i++) {
                 TransactionInput input = tx.inputs.get(i);
-                input.clearScriptBytes();
+	        if(!isWitnesses()){
+                  input.clearScriptBytes();
+		}else{
+		  input.setValue(this.inputs.get(i).getValue());
+		}
                 input.setWitness(null);
             }
 
@@ -1294,9 +1326,14 @@ public class Transaction extends ChildMessage {
             }
 
             ByteArrayOutputStream bos = new ByteArrayOutputStream(tx.length);
-            tx.bitcoinSerializeToStream(bos, false);
-            // We also have to write a hash type (sigHashType is actually an unsigned char)
-            uint32ToByteStreamLE(0x000000ff & sigHashType, bos);
+	    //tx.bitcoinSerializeToStream(bos, false);
+	    
+	    // john 20220219
+	    tx.bitcoinSerializeToStream1(bos);
+            
+	    // We also have to write a hash type (sigHashType is actually an unsigned char)
+	    // john 20220219
+            // uint32ToByteStreamLE(0x000000ff & sigHashType, bos);
             // Note that this is NOT reversed to ensure it will be signed correctly. If it were to be printed out
             // however then we would expect that it is IS reversed.
             Sha256Hash hash = Sha256Hash.twiceOf(bos.toByteArray());
@@ -1493,6 +1530,71 @@ public class Transaction extends ChildMessage {
         // lock_time
         uint32ToByteStreamLE(lockTime, stream);
     }
+
+    // john
+    @Override
+    protected void bitcoinSerializeToStream1(OutputStream stream) throws IOException {
+        // boolean useSegwit = hasWitnesses() && allowWitness();
+        boolean useSegwit = isWitnesses();
+        bitcoinSerializeToStream1(stream, useSegwit, 0);
+    }
+    protected void bitcoinSerializeToStream1(OutputStream stream, boolean useSegwit, int inputNumber) throws IOException {
+        // version
+        uint32ToByteStreamLE(version, stream);
+        if(!useSegwit){
+            // txin_count, txins
+            stream.write(new VarInt(inputs.size()).encode());
+            for (TransactionInput in : inputs)
+                in.bitcoinSerialize(stream);
+            // txout_count, txouts
+            stream.write(new VarInt(outputs.size()).encode());
+            for (TransactionOutput out : outputs)
+                out.bitcoinSerialize(stream);
+        }else{
+    	    Sha256Hash hashPrevouts;
+    	    Sha256Hash hashSequence;
+    	    Sha256Hash hashOutputs;
+   	
+	    ByteArrayOutputStream stream1 = new UnsafeByteArrayOutputStream();            
+    	    for (TransactionInput in : inputs)
+                in.bitcoinSerializeToStream1(stream1);
+	    hashPrevouts = Sha256Hash.twiceOf(stream1.toByteArray());
+
+	    ByteArrayOutputStream stream2 = new UnsafeByteArrayOutputStream();            
+    	    for (TransactionInput in : inputs)
+                in.bitcoinSerializeToStream2(stream2);
+	    hashSequence = Sha256Hash.twiceOf(stream2.toByteArray());
+
+	    ByteArrayOutputStream stream3 = new UnsafeByteArrayOutputStream();
+            for (TransactionOutput out : outputs)
+                out.bitcoinSerialize(stream3);
+            hashOutputs = Sha256Hash.twiceOf(stream3.toByteArray());
+	   	
+    	    // Input prevouts/nSequence (none/all, depending on flags)
+    	    stream.write(hashPrevouts.getBytes());
+    	    stream.write(hashSequence.getBytes());
+
+    	    // The input being signed (replacing the scriptSig with scriptCode + amount)
+    	    // The prevout may already be contained in hashPrevout, and the nSequence
+    	    // may already be contain in hashSequence.
+		
+	    TransactionOutPoint outpoint = inputs.get(inputNumber).getOutpoint();
+            outpoint.bitcoinSerialize(stream);
+            stream.write(inputs.get(inputNumber).getScriptSig().getProgram());
+
+    	    Utils.int64ToByteStreamLE(inputs.get(inputNumber).getValue().getValue(), stream);
+    	    Utils.uint32ToByteStreamLE(inputs.get(inputNumber).getSequenceNumber(), stream);
+
+    	    // Outputs (none/one/all, depending on flags)
+    	    stream.write(hashOutputs.getBytes());
+
+        }
+
+        // lock_time
+        uint32ToByteStreamLE(lockTime, stream);
+        uint32ToByteStreamLE(1, stream);
+    }
+
 
     /**
      * Transactions can have an associated lock time, specified either as a block height or in seconds since the
