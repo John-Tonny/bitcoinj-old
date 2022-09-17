@@ -51,7 +51,7 @@ public class MainNetParams extends AbstractBitcoinNetParams {
         dumpedPrivateKeyHeader = 128;
         addressHeader = 63;		// john
         p2shHeader = 5;			// john
-        segwitAddressHrp = "sys"; 	// john
+        segwitAddressHrp = "vcl"; 	// john
         spendableCoinbaseDepth = 100;
         bip32HeaderP2PKHpub = 0x0488b21e; // The 4 byte header that serializes in base58 to "xpub".
         bip32HeaderP2PKHpriv = 0x0488ade4; // The 4 byte header that serializes in base58 to "xprv"
@@ -161,5 +161,9 @@ public class MainNetParams extends AbstractBitcoinNetParams {
     @Override
     public String getPaymentProtocolId() {
         return PAYMENT_PROTOCOL_ID_MAINNET;
+    }
+
+    public void setAddressPrefix(){
+      
     }
 }
