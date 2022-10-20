@@ -140,6 +140,30 @@ public class MnemonicCode {
         return seed;
     }
 
+    public static byte[] toSeedByMode(List<String> words, String passphrase, boolean bElectrum) {
+        checkNotNull(passphrase, "A null passphrase is not allowed.");
+
+        // To create binary seed from mnemonic, we use PBKDF2 function
+        // with mnemonic sentence (in UTF-8) used as a password and
+        // string "mnemonic" + passphrase (again in UTF-8) used as a
+        // salt. Iteration count is set to 4096 and HMAC-SHA512 is
+        // used as a pseudo-random function. Desired length of the
+        // derived key is 512 bits (= 64 bytes).
+        //
+        String pass = Utils.SPACE_JOINER.join(words);
+        String salt = "mnemonic" + passphrase;
+        if(bElectrum){
+                salt = "electrum" + passphrase;
+        }
+
+        final Stopwatch watch = Stopwatch.createStarted();
+        byte[] seed = PBKDF2SHA512.derive(pass, salt, PBKDF2_ROUNDS, 64);
+        watch.stop();
+        log.info("PBKDF2 took {}", watch);
+        return seed;
+    }
+
+
     /**
      * Convert mnemonic word list to original entropy value.
      */

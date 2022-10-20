@@ -84,6 +84,10 @@ public class DeterministicSeed implements EncryptableItem {
         this((seed != null ? seed : MnemonicCode.toSeed(mnemonicCode, checkNotNull(passphrase))), mnemonicCode, creationTimeSeconds);
     }
 
+    public DeterministicSeed(List<String> mnemonicCode, @Nullable byte[] seed, String passphrase, long creationTimeSeconds, boolean bElectrum) {
+        this((seed != null ? seed : MnemonicCode.toSeedByMode(mnemonicCode, checkNotNull(passphrase), bElectrum)), mnemonicCode, creationTimeSeconds);
+    }
+
     /**
      * Constructs a seed from a BIP 39 mnemonic code. See {@link MnemonicCode} for more
      * details on this scheme.
